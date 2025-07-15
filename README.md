@@ -430,3 +430,64 @@ Below are example screenshots demonstrating the monitoring and alerting stack in
 This project is licensed under the MIT License - see the LICENSE file for details. 
 
 ---
+
+## [Optional] Task 6: Horizontal Scaling
+
+For clinical trials with 100 to 1,000 participants and several years of data, a single server can handle a lot, but eventually you'll hit limits with CPU, RAM, or disk. To scale out, you can use horizontal scaling—basically, spreading the load across multiple machines instead of just making one machine bigger.
+
+### How Would We Do It?
+- **Sharding the Database:** Split the TimescaleDB database across several nodes. Each node could handle a subset of users (e.g., by user ID) or a time range. This is called sharding. TimescaleDB has multi-node support for this.
+- **Coordinator/Query Router:** Add a coordinator node that knows where each user's data lives. All API requests go through this router, which sends queries to the right database node(s).
+- **Multiple API Instances:** Run several backend API containers (FastAPI) behind a load balancer. This way, more users can use the dashboard at once without slowing things down.
+- **Container Orchestration:** Use Docker Swarm or Kubernetes to manage all these containers and make sure they stay running, even if one machine goes down.
+- **Monitoring:** Keep using Prometheus, Grafana, and Alertmanager to monitor all nodes and services.
+
+### What Technologies Would Be Needed?
+- **TimescaleDB Multi-Node** (for sharding and replication)
+- **Load Balancer** (like Nginx, HAProxy, or built-in cloud load balancers)
+- **Docker Swarm or Kubernetes** (for orchestrating containers across machines)
+- **Prometheus, Grafana, Alertmanager** (for monitoring and alerting)
+
+### Example Horizontal Scaling Architecture
+
+```mermaid
+flowchart TD
+  subgraph User Layer
+    Clinician["Clinician Dashboard"]
+  end
+  subgraph API Layer
+    API1["Backend API (FastAPI)"]
+    API2["Backend API (FastAPI)"]
+  end
+  subgraph Data Layer
+    DB1["TimescaleDB Node 1"]
+    DB2["TimescaleDB Node 2"]
+    DB3["TimescaleDB Node 3"]
+    Coordinator["Query Router / Coordinator"]
+  end
+  subgraph Monitoring
+    Prom["Prometheus"]
+    Grafana["Grafana"]
+    Alert["Alertmanager"]
+  end
+  Clinician --> API1
+  Clinician --> API2
+  API1 --> Coordinator
+  API2 --> Coordinator
+  Coordinator --> DB1
+  Coordinator --> DB2
+  Coordinator --> DB3
+  DB1 -- Replication --> DB2
+  DB2 -- Replication --> DB3
+  Prom --> Grafana
+  Prom --> Alert
+  API1 --> Prom
+  API2 --> Prom
+  DB1 --> Prom
+  DB2 --> Prom
+  DB3 --> Prom
+  Coordinator --> Prom
+```
+
+This setup means you can add more database nodes or API servers as your study grows, and everything keeps running smoothly. It also makes the system more fault-tolerant, since one node going down won't take out the whole service.
+
