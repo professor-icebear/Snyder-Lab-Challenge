@@ -1,0 +1,32 @@
+global:
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alertmanager@wearipedia.com'
+  smtp_auth_username: 'alertmanager@wearipedia.com'
+  smtp_auth_password: 'yourpassword'
+
+route:
+  receiver: 'email-admin'
+  group_by: ['alertname', 'severity']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - match:
+        severity: critical
+      receiver: 'email-admin'
+    - match:
+        severity: warning
+      receiver: 'email-admin'
+
+receivers:
+  - name: 'email-admin'
+    email_configs:
+      - to: 'admin@wearipedia.com'
+        send_resolved: true
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname'] 

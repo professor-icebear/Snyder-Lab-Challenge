@@ -1,0 +1,164 @@
+# docker-compose.yml
+
+services:
+  timescaledb:
+    image: timescale/timescaledb:latest-pg14
+    container_name: fitbit_timescaledb
+    environment:
+      POSTGRES_DB: fitbit_data
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d fitbit_data"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fitbit_network
+
+  ingestion:
+    build: .
+    container_name: fitbit_ingestion
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_NAME: fitbit_data
+      DB_USER: postgres
+      DB_PASS: password
+    volumes:
+      - ./ingest:/app/ingest
+      - ./data:/app/data
+      - ./last_run.txt:/app/last_run.txt
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: fitbit_backend
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    environment:
+      DB_HOST: timescaledb
+      DB_PORT: 5432
+      DB_NAME: fitbit_data
+      DB_USER: postgres
+      DB_PASS: password
+      # --- EMAIL CONFIGURATION (GMAIL SMTP) ---
+      # Update these values with your own Gmail address and App Password to enable email functionality
+      MAIL_USERNAME: "dummy.email@gmail.com"
+      MAIL_PASSWORD: "dummy_app_password"
+      MAIL_SERVER: "smtp.gmail.com"
+      MAIL_FROM: "dummy.email@gmail.com"
+      MAIL_PORT: 587
+      MAIL_STARTTLS: "True"
+      MAIL_SSL_TLS: "False"
+    ports:
+      - "8000:8000"
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    container_name: fitbit_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/rules.yml:/etc/prometheus/rules.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+    depends_on:
+      - backend
+      - ingestion
+      - node-exporter
+      - cadvisor
+      - alertmanager
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: alertmanager
+    volumes:
+      - ./monitoring/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+    ports:
+      - "9093:9093"
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8080:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks:
+      - fitbit_network
+    restart: unless-stopped
+
+networks:
+  fitbit_network:
+    driver: bridge
+
+volumes:
+  timescaledb_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

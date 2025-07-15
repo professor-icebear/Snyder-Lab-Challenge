@@ -1,0 +1,60 @@
+# Data files (may contain sensitive information)
+ingest/data/*.csv
+last_run.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Database backups
+*.sql
+*.dump
+
+# Environment variables
+.env
+.env.local
+.env.production 
+
+# Ignore challenge PDF
+Challenge v2.pdf 

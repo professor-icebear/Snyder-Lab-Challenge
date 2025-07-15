@@ -1,0 +1,20 @@
+groups:
+  - name: ingestion_alerts
+    rules:
+      - alert: IngestionErrorCountHigh
+        expr: ingestion_error_count > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: 'Ingestion errors detected'
+          description: 'There have been one or more ingestion errors in the last minute.'
+
+      - alert: IngestionLatencyHigh
+        expr: ingestion_latency_seconds > 5
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: 'Ingestion latency is high'
+          description: 'Ingestion latency has exceeded 5 seconds for over a minute.' 
